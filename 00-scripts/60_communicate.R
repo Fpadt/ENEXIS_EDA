@@ -133,7 +133,7 @@ f_all <-
     f_knit_flexdashboard_to_publish(
       x = "data_profiling", denv = "prd", opco = opco, nrws = nrws)
     
-    # Transfer the FlexDashboard to teh reporting server
+    # Transfer the FlexDashboard to webserver
     if (pub == TRUE) {
       f_transfer_to_reporting_server(
         userpwd       = "floris.padt:15minsofr",
