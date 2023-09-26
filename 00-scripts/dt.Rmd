@@ -1,0 +1,128 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+This is a R-markdown analysis note book
+[reacttable](https://glin.github.io/reactable/articles/twitter-followers/twitter-followers.html)
+
+```{r, eval=F}
+ARTICLE_FRAME_AND_SUN <- 
+  raw_data[["ARTICLE"]] %>% 
+  .[CATEGORY_CODE %in% c("PG2020", "PG2030"), 
+    .(LOCAL_ARTICLE_ID, CATEGORY_CODE)]
+
+SO0 <- 
+  AM0[raw_data[["SELL_OUT"]], on = .(LOCAL_ARTICLE_ID), nomatch = 0] %>%
+  .[, `:=` (DATE = ymd(DATE), DATE_DELIVERED = ymd(DATE_DELIVERED))] 
+
+KEYFIGS <- sapply(SO0, is.numeric) %>% .[. == TRUE] %>% names()
+RETURNS <- SO0[, ifelse(RETURN_INDICATOR == "X", .I, 0)] %>% .[. > 0]
+
+for (i in RETURNS) {
+  for (j in KEYFIGS)
+      set(SO0, i , j, -SO0[[i, j]])
+}
+
+SO0[CANCELLATION_INDICATOR == "X", KEYFIGS := .()]
+
+View(tst[is.na(LOCAL_ARTICLE_ID) ])
+View(DT0[COGS == 0 ])
+
+
+View(DT0[TICKET_ID == "1017-143078", 
+         .(GROSS_VALUE_SALES_INC_VAT = sum(GROSS_VALUE_SALES_INC_VAT),
+           NO_UNIQUE_ARTICLES        = .N), 
+         by = .(TICKET_ID, CONSUMER_ID)])
+View(DT0[TICKET_ID == "1017-143078"])
+
+write.table(DT0[TICKET_ID == "1017-143078"], "T27.csv", sep=";", row.names= F, col.names=T)
+
+DT1 <- 
+  raw_data[["SELL_OUT"]][, .N , by = .(TICKET_ID, LOCAL_ARTICLE_ID)]
+View(DT1[ TICKET_ID == "640-32022"])
+
+
+
+
+DT2 <- 
+  DT1[, .(No_of_SF = .N), by = .(TICKET_ID)] 
+
+DT3 <- 
+  DT2 %>% .[No_of_SF >1] %>% .[, .N, by = .(No_of_SF)]
+ 
+
+
+```
+
+```{r}
+library(DT)
+# Make dataframe
+df.link <- data.frame(school=c("OSU", "UO", "Linfield", "Willamette"), 
+                      mascot=c("beavers", "ducks", "wildcats", "bearcats"),
+                      website=c('<a href="http://oregonstate.edu/">;oregonstate.edu</a>;',
+                                '<a href="https://www.uoregon.edu/">;uoregon.edu</a>;',
+                                '<a href="https://www.linfield.edu/">;linfield.edu</a>;',
+                                '<a href="https://www.willamette.edu/">;willamette.edu</a>;'),
+                      School_colors=c('<span style="color:orange">;orange &amp; black</span>;', 
+                                        '<span style="color:green">;green &amp; yellow</span>;', 
+                                        '<span style="color:purple">;purple and red</span>;', 
+                                        '<span style="color:red">;red and yellow</span>;'))
+ 
+# When the html columns, 3 &amp; 4, are not escaped, it works!
+datatable(df.link, escape = c(1,2,3))
+```
+
+```{r}
+library(formattable)
+
+df <- data.frame(
+  id = 1:10,
+  name = c("Bob", "Ashley", "James", "David", "Jenny", 
+    "Hans", "Leo", "John", "Emily", "Lee"), 
+  age = c(28, 27, 30, 28, 29, 29, 27, 27, 31, 30),
+  grade = c("C", "A", "A", "C", "B", "B", "B", "A", "C", "C"),
+  test1_score = c(8.9, 9.5, 9.6, 8.9, 9.1, 9.3, 9.3, 9.9, 8.5, 8.6),
+  test2_score = c(9.1, 9.1, 9.2, 9.1, 8.9, 8.5, 9.2, 9.3, 9.1, 8.8),
+  final_score = c(9, 9.3, 9.4, 9, 9, 8.9, 9.25, 9.6, 8.8, 8.7),
+  registered = c(TRUE, FALSE, TRUE, FALSE, TRUE, TRUE, TRUE, FALSE, FALSE, FALSE),
+  stringsAsFactors = FALSE)
+
+formattable(df, list(
+  age = color_tile("white", "orange"),
+  grade = formatter("span", style = x ~ ifelse(x == "A", 
+    style(color = "green", font.weight = "bold"), NA)),
+  area(col = c(test1_score, test2_score)) ~ normalize_bar("pink", 0.2),
+  final_score = formatter("span",
+    style = x ~ style(color = ifelse(rank(-x) <= 3, "green", "gray")),
+    x ~ sprintf("%.2f (rank: %02d)", x, rank(-x))),
+  registered = formatter("span",
+    style = x ~ style(color = ifelse(x, "green", "red")),
+    x ~ icontext(ifelse(x, "ok", "remove"), ifelse(x, "Yes", "No")))
+))
+```
+
+```{r}
+library(dplyr)
+library(sparkline)
+library(reactable)
+
+data <- chickwts %>%
+  group_by(feed) %>%
+  summarise(weight = list(weight)) %>%
+  mutate(boxplot = NA, sparkline = NA)
+
+reactable(data, columns = list(
+  weight = colDef(cell = function(values) {
+    sparkline(values, type = "bar", chartRangeMin = 0, chartRangeMax = max(chickwts$weight))
+  }),
+  boxplot = colDef(cell = function(value, index) {
+    sparkline(data$weight[[index]], type = "box")
+  }),
+  sparkline = colDef(cell = function(value, index) {
+    sparkline(data$weight[[index]])
+  })
+))
+```
+
