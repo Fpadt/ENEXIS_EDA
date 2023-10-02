@@ -1,0 +1,9 @@
+## Navigation {.sidebar}
+
+[Key Data Domain](#<table>)  
+
+[Meta Data](#<table>_columns_description)
+
+[Basic Statistics](#<table>_basic_statistics)
+
+

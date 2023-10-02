@@ -1,0 +1,12 @@
+# <table>_basic_statistics {.hidden data-orientation=rows}
+
+<sidebar>
+
+## 
+
+### Basic Statistics
+
+```{r <table>_basic_statistics}
+ knitr::kable(cardin[[toupper('<table>')]])  
+```
+

@@ -1,0 +1,7306 @@
+---
+title : "`r substr(toupper(params$opco), 1, 2)`"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: cosmo
+    navbar:
+      - { title: "Data Catalog", href: "http://report.grandvision.global/bi-doc/udc", align: right }
+    orientation: columns
+    vertical_layout: fill
+params:
+  denv : "prd"    # environment acc | prd
+  opco : "ch"     # 2 character opco
+<<<<<<< HEAD
+  nrws : "Inf"    # c(-1,0,1,n)
+=======
+  nrws : "Inf"        # c(-1,0,1,n)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+---
+
+```{r setup, include=FALSE}
+# this file sources all other scripts
+source(file.path("~", "isdb", "00-scripts", "00_setup.R"))
+<<<<<<< HEAD
+opco_labels <- f_read_opco_labels()
+=======
+
+scipen <- options("scipen")[["scipen"]]
+options(scipen = 999)
+
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+```
+
+```{r read_data, eval=TRUE}
+system.time({
+  
+# read nrows from all tables 
+raw_data <-
+  f_read_opco_data(
+    denv = params$denv,                    # environment acc | prd
+<<<<<<< HEAD
+    opco = params$opco,                    # 2 character opco    
+#    ds   = c("ARTICLE"),                   # specific Data Sources
+=======
+    opco = params$opco,                    # 2 character opco
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+    nrws = as.numeric(params$nrws)         # c(-1,0,1,n)
+  ) 
+
+})
+
+
+# SO <- raw_data[["SELL_OUT"]][, .(Q = sum(QUANTITY)), by = .(LOCAL_ARTICLE_ID)]
+# 
+# ARTICLE_FRAME_AND_SUN <- 
+#   SO[ARTICLE_FRAME_AND_SUN, on = .(LOCAL_ARTICLE_ID),
+#      nomatch = 0]
+
+
+# write.csv2(
+#   ARTICLE_FRAME_AND_SUN, 
+#   paste0("../60-results/", params$opco, "_articleQ.csv"))
+
+
+# raw_data[["SELL_OUT"]] <- 
+#   ARTICLE_FRAME_AND_SUN[raw_data[["SELL_OUT"]], 
+#                         on = .(LOCAL_ARTICLE_ID), nomatch = 0] %>%
+#   .[, `:=` (Purchase_Price       = COGS/QUANTITY,
+#             Retail_Price_inc_VAT = GROSS_VALUE_SALES_INC_VAT/QUANTITY,
+#             Retail_Price_ex_VAT  = GROSS_VALUE_SALES_EX_VAT/QUANTITY)] 
+# # %>%
+# #   .[ISVALID                == 1  &
+# #       RETURN_INDICATOR       == "0" &
+# #       CANCELLATION_INDICATOR == "0", ]
+# 
+# raw_data[["DISCOUNTS"]] <- 
+#   raw_data[["DISCOUNTS"]][raw_data[["SELL_OUT"]],
+#                           on = .(LINK_TO_TICKET_ID_LINE == TICKET_ID_LINE,
+#                                  STORE_ID, TICKET_ID)]
+
+# read metadata_didp
+metadata_didp <-
+  f_read_meta_data(opco = params$opco)     # 2 character opco
+
+<<<<<<< HEAD
+
+```
+
+```{r determine_factors, eval=F}
+
+# Check Primary Keys
+primary_key <- 
+  f_check_primkeys(
+    lst_raw_data     = raw_data,
+    dt_metadata_didp = metadata_didp
+  )
+
+f_write_primary_key_log(primary_key)
+
+raw_data <- 
+  f_remove_duplicates(
+    primary_key = primary_key,
+    lst_raw_data = raw_data
+  )
+
+
+
+
+# TAB <- "ARTICLE"
+# 
+# system.time(
+#   tst3 <- f_analyze_tables(raw_data[TAB])
+#   )
+# 
+# dtDSTATS <- 
+#   lapply(names(tst3[[TAB]]), f_get_column_analysis, 
+#          .lst= tst3, .table = TAB, .resultset = "DSTATS") %>% 
+#   rbindlist() %>%
+#   .[, SOURCE := TAB]
+
+
+```
+
+```{r graph_purchase-price, eval=FALSE}
+x <- 
+  raw_data[["SELL_OUT"]] %>%
+  .[, .(Category = factor(CATEGORY_NAME), PP = COGS/QUANTITY)] %>% 
+  .[PP <= 0, PP:= 0.01 ] %>%
+  .[is.nan(PP) , PP:= 0.01 ]
+
+gvColors <- 
+  c(GV_BLUE_0, GV_ORNG_0)
+
+names(gvColors) <- 
+  levels(x$Category)
+
+colScale <- 
+  scale_fill_manual(name = "Category", values = gvColors)
+
+p1 <- 
+  ggplot(data = x, 
+         mapping = aes(x = Category, y = PP, 
+                       fill = Category))
+(p2 <- 
+  p1 + 
+  geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) + 
+  scale_y_log10(breaks = c(0.1, 10, 50, 100, 500, 1000, 10000)) + 
+  colScale +
+  labs(x = "Category", y = "Purchase price"))
+```
+
+ISVALID == 1 & RETURN_INDICATOR == 0 & CANCELLATION_INDICATOR == 0
+
+```{r graph_gan_mapping, eval=FALSE}
+path <- 
+  file.path("..", "80-figures", "pmdm_mapping") %>%
+  f_get_folder()
+
+# inner-join frame & Sun and add MD attributes
+x <- 
+  raw_data[["SELL_OUT"]] %>%
+  ARTICLE_FRAME_AND_SUN[, .(LOCAL_ARTICLE_ID, CATEGORY_CODE, MAP) ][
+    ., on = .(LOCAL_ARTICLE_ID), nomatch = 0 ] %>%
+  .[, .(Q = sum(QUANTITY), V = sum(GROSS_VALUE_SALES_INC_VAT)), 
+    by = .(Month    = floor_date(ymd(DATE), "month"), 
+           Category = factor(
+             CATEGORY_CODE, labels = c("Frames", "Sunglasses")), 
+           MAP)] 
+
+# map the GV-colors 
+#                    "-"      , MARA_EAN , PMDM_EAN , PMDM_GAN
+gvColors        <- c(GV_ORNG_0, GV_GREY_1, GV_BLUE_2, GV_BLUE_0)
+names(gvColors) <- levels(x$MAP)
+colScale        <- scale_fill_manual(name = "pmdm", values = gvColors)
+colScale_col    <- scale_color_manual(name = "pmdm", values = gvColors)
+
+# Determine the breaks
+db <- paste(ceiling(length(unique(x$Month))/9), "month")
+br <- (1:10)/10
+et <- element_text(
+      family = "DejaVu Sans", face = "plain", colour = GV_GREY_1, size = 15)
+at <- element_text(
+      family = "DejaVu Sans", face = "plain", colour = GV_GREY_1, size = 12)
+
+# Map data, aesthetics, GV colors and time scale
+pQ <- 
+  ggplot(data = x, mapping = aes(x = Month, y = Q, fill = MAP)) +
+  colScale + 
+  scale_x_date(date_breaks = eval(db), date_labels = "%Y.%m") +
+  scale_y_continuous(sec.axis = sec_axis(~ . )) +
+  # labs(title = paste0(params$opco ), x = "Date") +
+  labs(
+    title = opco_labels[OPCO == params$opco, LABEL], 
+    subtitle = format(today(), "%A, %d %B, %Y "),
+    x = "Date") +  
+  facet_wrap(facets = "Category", nrow = 2) +
+  theme(text = at, title = et, legend.position = "bottom")
+
+# Plot Identity
+(pQI <- 
+    pQ + 
+    geom_col() +                             # legend.position="top"
+    # geom_hline(
+    #   data = x[, .(yintercept = mean(Q)), by = .(Category, MAP)], 
+    #   mapping= aes(yintercept = yintercept, color = MAP)) +
+    # colScale_col +
+    labs(y = "Sell-Out Vol. ")
+  ) 
+# save plot per day
+ggsave(plot = pQI, 
+       file.path(path, paste0(params$opco, "_qi_", today(), ".png")))
+
+x_mean_cumQ <- 
+  copy(x) %>%
+  .[, .(tot = sum(Q)), by = .(Category, MAP)] %>%
+  .[, yintercept:= tot/sum(tot), by = .(Category)] %T>%
+  setorder(Category, -MAP) %>%
+  .[, yintercept:=cumsum(yintercept), by = .(Category)]
+
+# Plot Percentage 
+(pQP <- pQ + geom_col(position = position_fill())  + 
+    labs(y = "Sell-Out Vol. % ") +
+    geom_hline(
+      data = x_mean_cumQ, 
+      mapping= aes(yintercept = yintercept, color = MAP), linetype = "dashed", size = 1) +
+    colScale_col +
+    scale_y_continuous(
+      labels = scales::percent_format(), breaks = br,
+  sec.axis = sec_axis(~ ., labels = scales::percent_format(), breaks = br )))
+# save plot per day
+ggsave(plot = pQP, 
+       file.path(path, paste0(params$opco, "_qp_", today(), ".png")))
+
+pV <- 
+  ggplot(data = x, mapping = aes(x = Month, y = V, fill = MAP)) +
+  colScale + 
+  scale_x_date(date_breaks = eval(db), date_labels = "%Y.%m") +
+  scale_y_continuous(sec.axis = sec_axis(~ . )) +  
+  # labs(title = paste0(params$opco ), x = "Date") +
+  labs(
+    title = opco_labels[OPCO == params$opco, LABEL], 
+    subtitle = format(today(), "%A, %d %B, %Y "),
+    x = "Date") +    
+  facet_wrap(facets = "Category", nrow = 2) +
+  theme(text = at, title = et, legend.position = "bottom")
+
+# Plot Identity
+(pVI <- pV + geom_col() + labs(y = "Sell-Out Val. "))   
+# save plot per day
+ggsave(plot = pVI, 
+       file.path(path, paste0(params$opco, "_vi_", today(), ".png")))
+
+x_mean_cumV <- 
+  copy(x) %>%
+  .[, .(tot = sum(V)), by = .(Category, MAP)] %>%
+  .[, yintercept:= tot/sum(tot), by = .(Category)] %T>%
+  setorder(Category, -MAP) %>%
+  .[, yintercept:=cumsum(yintercept), by = .(Category)]
+
+# Plot Percentage 
+(pVP <- pV + geom_col(position = position_fill())  + 
+    labs(y = "Sell-Out Val. % ") +    
+    geom_hline(
+      data = x_mean_cumV, 
+      mapping= aes(yintercept = yintercept, color = MAP), linetype = "dashed", size = 1) +
+    colScale_col +    
+    scale_y_continuous(
+      labels = scales::percent_format(), breaks = br,
+      sec.axis = sec_axis(~ ., labels = scales::percent_format(), breaks = br )))
+# save plot per day
+ggsave(plot = pVP, 
+       file.path(path, paste0(params$opco, "_vp_", today(), ".png")))
+```
+
+```{r global_article_mapping, eval=TRUE}
+metadata_didp[COLUMN_NAME == "GLOBAL_ARTICLE_NUMBER", DS] %>%
+  f_write_global_article_log(raw_data = raw_data)
+=======
+})
+```
+
+```{r determine_factors}
+
+system.time(
+  tst <- f_analyze_tables(raw_data["SELL_OUT"])
+  )
+
+dtDSTATS <- 
+  lapply(names(tst[["SELL_OUT"]]), f_get_column_analysis, 
+         .lst= tst, .table = "SELL_OUT", .resultset = "DSTATS") %>% 
+  rbindlist() %>%
+  .[, SOURCE := "SELL_OUT"]
+
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+```
+
+```{r process_tables, eval=TRUE}
+
+f_process_factors <- 
+  function(x){
+    
+    output <- list()    
+
+    output[["value"]]   <- lapply(x, f_get_value)
+    output[["pattern"]] <- lapply(x, f_get_pattern)
+    output[["word"]]    <- lapply(x, f_get_word)
+    output
+  }
+
+# output[['store']][['pattern']][['STORE_ID']]
+output <- lapply(opco_factors, f_process_factors)
+#cardin <- lapply(raw_data, f_calc_cardinality)
+
+```
+
+# Article { data-orientation=rows }
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+
+## Overview
+
+### PMDM
+
+> ToDo: link to PMDM ID
+
+```{r Article_gauge_pmdm}
+rate <- 90
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Emerald
+
+> ToDo: link to Emerald Store ID
+
+```{r Article_gauge_emerald}
+rate <- 50
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Vacant
+
+> ToDo: relevant key field to be linked
+
+```{r Article_gauge_vacant}
+rate <- 20
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+## Comments
+
+### Action Points {data-width=1200}
+
+
+### Comments
+
+- bullet points or table 
+
+
+
+# Discounts { data-orientation=rows }
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+
+## Overview
+
+### PMDM
+
+> ToDo: link to PMDM ID
+
+```{r Discounts_gauge_pmdm}
+rate <- 90
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Emerald
+
+> ToDo: link to Emerald Store ID
+
+```{r Discounts_gauge_emerald}
+rate <- 50
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Vacant
+
+> ToDo: relevant key field to be linked
+
+```{r Discounts_gauge_vacant}
+rate <- 20
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+## Comments
+
+### Action Points {data-width=1200}
+
+
+### Comments
+
+- bullet points or table 
+
+
+
+# Sell_in { data-orientation=rows }
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+
+## Overview
+
+### PMDM
+
+> ToDo: link to PMDM ID
+
+```{r Sell_in_gauge_pmdm}
+rate <- 90
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Emerald
+
+> ToDo: link to Emerald Store ID
+
+```{r Sell_in_gauge_emerald}
+rate <- 50
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Vacant
+
+> ToDo: relevant key field to be linked
+
+```{r Sell_in_gauge_vacant}
+rate <- 20
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+## Comments
+
+### Action Points {data-width=1200}
+
+
+### Comments
+
+- bullet points or table 
+
+
+
+# Sell_out { data-orientation=rows }
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+
+## Overview
+
+### PMDM
+
+> ToDo: link to PMDM ID
+
+```{r Sell_out_gauge_pmdm}
+rate <- 90
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Emerald
+
+> ToDo: link to Emerald Store ID
+
+```{r Sell_out_gauge_emerald}
+rate <- 50
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Vacant
+
+> ToDo: relevant key field to be linked
+
+```{r Sell_out_gauge_vacant}
+rate <- 20
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+## Comments
+
+### Action Points {data-width=1200}
+
+
+### Comments
+
+- bullet points or table 
+
+
+
+# Stock { data-orientation=rows }
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+
+## Overview
+
+### PMDM
+
+> ToDo: link to PMDM ID
+
+```{r Stock_gauge_pmdm}
+rate <- 90
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Emerald
+
+> ToDo: link to Emerald Store ID
+
+```{r Stock_gauge_emerald}
+rate <- 50
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Vacant
+
+> ToDo: relevant key field to be linked
+
+```{r Stock_gauge_vacant}
+rate <- 20
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+## Comments
+
+### Action Points {data-width=1200}
+
+
+### Comments
+
+- bullet points or table 
+
+
+
+# Store { data-orientation=rows }
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+
+## Overview
+
+### PMDM
+
+> ToDo: link to PMDM ID
+
+```{r Store_gauge_pmdm}
+rate <- 90
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Emerald
+
+> ToDo: link to Emerald Store ID
+
+```{r Store_gauge_emerald}
+rate <- 50
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Vacant
+
+> ToDo: relevant key field to be linked
+
+```{r Store_gauge_vacant}
+rate <- 20
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+## Comments
+
+### Action Points {data-width=1200}
+
+
+### Comments
+
+- bullet points or table 
+
+
+
+# article_columns_description {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+
+## 
+
+### Meta Data 
+Table: **`r toupper("article")`**
+
+```{r article_columns_description}
+# Show metadata of OPCO-table
+
+knitr::kable(
+  metadata_didp[
+    DS == toupper("article"), 
+    !c("ID", "IMPORT", "OPCO", "TABLE_NAME", "DS")])
+
+
+```
+
+# discounts_columns_description {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+
+## 
+
+### Meta Data 
+Table: **`r toupper("discounts")`**
+
+```{r discounts_columns_description}
+# Show metadata of OPCO-table
+
+knitr::kable(
+  metadata_didp[
+    DS == toupper("discounts"), 
+    !c("ID", "IMPORT", "OPCO", "TABLE_NAME", "DS")])
+
+
+```
+
+# sell_in_columns_description {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+
+## 
+
+### Meta Data 
+Table: **`r toupper("sell_in")`**
+
+```{r sell_in_columns_description}
+# Show metadata of OPCO-table
+
+knitr::kable(
+  metadata_didp[
+    DS == toupper("sell_in"), 
+    !c("ID", "IMPORT", "OPCO", "TABLE_NAME", "DS")])
+
+
+```
+
+# sell_out_columns_description {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+
+## 
+
+### Meta Data 
+Table: **`r toupper("sell_out")`**
+
+```{r sell_out_columns_description}
+# Show metadata of OPCO-table
+
+knitr::kable(
+  metadata_didp[
+    DS == toupper("sell_out"), 
+    !c("ID", "IMPORT", "OPCO", "TABLE_NAME", "DS")])
+
+
+```
+
+# stock_columns_description {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+
+## 
+
+### Meta Data 
+Table: **`r toupper("stock")`**
+
+```{r stock_columns_description}
+# Show metadata of OPCO-table
+
+knitr::kable(
+  metadata_didp[
+    DS == toupper("stock"), 
+    !c("ID", "IMPORT", "OPCO", "TABLE_NAME", "DS")])
+
+
+```
+
+# store_columns_description {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+
+## 
+
+### Meta Data 
+Table: **`r toupper("store")`**
+
+```{r store_columns_description}
+# Show metadata of OPCO-table
+
+knitr::kable(
+  metadata_didp[
+    DS == toupper("store"), 
+    !c("ID", "IMPORT", "OPCO", "TABLE_NAME", "DS")])
+
+
+```
+
+# Article_basic_statistics {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+
+## 
+
+### Basic Statistics
+
+```{r Article_basic_statistics}
+ knitr::kable(cardin[[toupper('Article')]])  
+```
+
+# Discounts_basic_statistics {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+
+## 
+
+### Basic Statistics
+
+```{r Discounts_basic_statistics}
+ knitr::kable(cardin[[toupper('Discounts')]])  
+```
+
+# Sell_in_basic_statistics {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+
+## 
+
+### Basic Statistics
+
+```{r Sell_in_basic_statistics}
+ knitr::kable(cardin[[toupper('Sell_in')]])  
+```
+
+# Sell_out_basic_statistics {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+
+## 
+
+### Basic Statistics
+
+```{r Sell_out_basic_statistics}
+ knitr::kable(cardin[[toupper('Sell_out')]])  
+```
+
+# Stock_basic_statistics {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+
+## 
+
+### Basic Statistics
+
+```{r Stock_basic_statistics}
+ knitr::kable(cardin[[toupper('Stock')]])  
+```
+
+# Store_basic_statistics {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+
+## 
+
+### Basic Statistics
+
+```{r Store_basic_statistics}
+ knitr::kable(cardin[[toupper('Store')]])  
+```
+
+# article_category_code {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### category_code
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_category_code_value}
+  output[[toupper('article')]][['value']][[toupper('category_code')]]
+```
+    
+### Pattern 
+  
+```{r article_category_code_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('category_code')]]
+```
+  
+### Word
+  
+```{r article_category_code_word}
+  output[[toupper('article')]][['word']][[toupper('category_code')]]
+```
+
+# article_category_name {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### category_name
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_category_name_value}
+  output[[toupper('article')]][['value']][[toupper('category_name')]]
+```
+    
+### Pattern 
+  
+```{r article_category_name_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('category_name')]]
+```
+  
+### Word
+  
+```{r article_category_name_word}
+  output[[toupper('article')]][['word']][[toupper('category_name')]]
+```
+
+# article_global_article_number {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### global_article_number
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_global_article_number_value}
+  output[[toupper('article')]][['value']][[toupper('global_article_number')]]
+```
+    
+### Pattern 
+  
+```{r article_global_article_number_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('global_article_number')]]
+```
+  
+### Word
+  
+```{r article_global_article_number_word}
+  output[[toupper('article')]][['word']][[toupper('global_article_number')]]
+```
+
+# article_local_article_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### local_article_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_local_article_id_value}
+  output[[toupper('article')]][['value']][[toupper('local_article_id')]]
+```
+    
+### Pattern 
+  
+```{r article_local_article_id_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('local_article_id')]]
+```
+  
+### Word
+  
+```{r article_local_article_id_word}
+  output[[toupper('article')]][['word']][[toupper('local_article_id')]]
+```
+
+# article_local_ean {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### local_ean
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_local_ean_value}
+  output[[toupper('article')]][['value']][[toupper('local_ean')]]
+```
+    
+### Pattern 
+  
+```{r article_local_ean_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('local_ean')]]
+```
+  
+### Word
+  
+```{r article_local_ean_word}
+  output[[toupper('article')]][['word']][[toupper('local_ean')]]
+```
+
+# article_opco {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### opco
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_opco_value}
+  output[[toupper('article')]][['value']][[toupper('opco')]]
+```
+    
+### Pattern 
+  
+```{r article_opco_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('opco')]]
+```
+  
+### Word
+  
+```{r article_opco_word}
+  output[[toupper('article')]][['word']][[toupper('opco')]]
+```
+
+# article_product_brand {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### product_brand
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_product_brand_value}
+  output[[toupper('article')]][['value']][[toupper('product_brand')]]
+```
+    
+### Pattern 
+  
+```{r article_product_brand_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('product_brand')]]
+```
+  
+### Word
+  
+```{r article_product_brand_word}
+  output[[toupper('article')]][['word']][[toupper('product_brand')]]
+```
+
+# article_product_name {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### product_name
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_product_name_value}
+  output[[toupper('article')]][['value']][[toupper('product_name')]]
+```
+    
+### Pattern 
+  
+```{r article_product_name_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('product_name')]]
+```
+  
+### Word
+  
+```{r article_product_name_word}
+  output[[toupper('article')]][['word']][[toupper('product_name')]]
+```
+
+# article_ssis_log_lastupdate {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssis_log_lastupdate
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_ssis_log_lastupdate_value}
+  output[[toupper('article')]][['value']][[toupper('ssis_log_lastupdate')]]
+```
+    
+### Pattern 
+  
+```{r article_ssis_log_lastupdate_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('ssis_log_lastupdate')]]
+```
+  
+### Word
+  
+```{r article_ssis_log_lastupdate_word}
+  output[[toupper('article')]][['word']][[toupper('ssis_log_lastupdate')]]
+```
+
+# article_ssislogid {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssislogid
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_ssislogid_value}
+  output[[toupper('article')]][['value']][[toupper('ssislogid')]]
+```
+    
+### Pattern 
+  
+```{r article_ssislogid_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('ssislogid')]]
+```
+  
+### Word
+  
+```{r article_ssislogid_word}
+  output[[toupper('article')]][['word']][[toupper('ssislogid')]]
+```
+
+# article_supplier_name {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#article)  
+
+[Meta Data](#article_columns_description)
+
+[Basic Statistics](#article_basic_statistics)
+
+
+- [CATEGORY_CODE](#article_category_code)
+- [CATEGORY_NAME](#article_category_name)
+- [GLOBAL_ARTICLE_NUMBER](#article_global_article_number)
+- [LOCAL_ARTICLE_ID](#article_local_article_id)
+- [LOCAL_EAN](#article_local_ean)
+- [OPCO](#article_opco)
+- [PRODUCT_BRAND](#article_product_brand)
+- [PRODUCT_NAME](#article_product_name)
+- [SSISLOGID](#article_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#article_ssis_log_lastupdate)
+- [SUPPLIER_NAME](#article_supplier_name)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### supplier_name
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r article_supplier_name_value}
+  output[[toupper('article')]][['value']][[toupper('supplier_name')]]
+```
+    
+### Pattern 
+  
+```{r article_supplier_name_pattern}
+  output[[toupper('article')]][['pattern']][[toupper('supplier_name')]]
+```
+  
+### Word
+  
+```{r article_supplier_name_word}
+  output[[toupper('article')]][['word']][[toupper('supplier_name')]]
+```
+
+# discounts_currency {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### currency
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_currency_value}
+  output[[toupper('discounts')]][['value']][[toupper('currency')]]
+```
+    
+### Pattern 
+  
+```{r discounts_currency_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('currency')]]
+```
+  
+### Word
+  
+```{r discounts_currency_word}
+  output[[toupper('discounts')]][['word']][[toupper('currency')]]
+```
+
+# discounts_discount_item_description {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### discount_item_description
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_discount_item_description_value}
+  output[[toupper('discounts')]][['value']][[toupper('discount_item_description')]]
+```
+    
+### Pattern 
+  
+```{r discounts_discount_item_description_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('discount_item_description')]]
+```
+  
+### Word
+  
+```{r discounts_discount_item_description_word}
+  output[[toupper('discounts')]][['word']][[toupper('discount_item_description')]]
+```
+
+# discounts_discount_item_ex_vat {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### discount_item_ex_vat
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# discounts_discount_item_inc_vat {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### discount_item_inc_vat
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# discounts_discount_item_key {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### discount_item_key
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_discount_item_key_value}
+  output[[toupper('discounts')]][['value']][[toupper('discount_item_key')]]
+```
+    
+### Pattern 
+  
+```{r discounts_discount_item_key_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('discount_item_key')]]
+```
+  
+### Word
+  
+```{r discounts_discount_item_key_word}
+  output[[toupper('discounts')]][['word']][[toupper('discount_item_key')]]
+```
+
+# discounts_isvalid {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### isvalid
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_isvalid_value}
+  output[[toupper('discounts')]][['value']][[toupper('isvalid')]]
+```
+    
+### Pattern 
+  
+```{r discounts_isvalid_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('isvalid')]]
+```
+  
+### Word
+  
+```{r discounts_isvalid_word}
+  output[[toupper('discounts')]][['word']][[toupper('isvalid')]]
+```
+
+# discounts_link_to_ticket_id_line_seq {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### link_to_ticket_id_line_seq
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_link_to_ticket_id_line_seq_value}
+  output[[toupper('discounts')]][['value']][[toupper('link_to_ticket_id_line_seq')]]
+```
+    
+### Pattern 
+  
+```{r discounts_link_to_ticket_id_line_seq_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('link_to_ticket_id_line_seq')]]
+```
+  
+### Word
+  
+```{r discounts_link_to_ticket_id_line_seq_word}
+  output[[toupper('discounts')]][['word']][[toupper('link_to_ticket_id_line_seq')]]
+```
+
+# discounts_link_to_ticket_id_line {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### link_to_ticket_id_line
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_link_to_ticket_id_line_value}
+  output[[toupper('discounts')]][['value']][[toupper('link_to_ticket_id_line')]]
+```
+    
+### Pattern 
+  
+```{r discounts_link_to_ticket_id_line_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('link_to_ticket_id_line')]]
+```
+  
+### Word
+  
+```{r discounts_link_to_ticket_id_line_word}
+  output[[toupper('discounts')]][['word']][[toupper('link_to_ticket_id_line')]]
+```
+
+# discounts_salesorg {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### salesorg
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_salesorg_value}
+  output[[toupper('discounts')]][['value']][[toupper('salesorg')]]
+```
+    
+### Pattern 
+  
+```{r discounts_salesorg_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('salesorg')]]
+```
+  
+### Word
+  
+```{r discounts_salesorg_word}
+  output[[toupper('discounts')]][['word']][[toupper('salesorg')]]
+```
+
+# discounts_ssis_log_lastupdate {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssis_log_lastupdate
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_ssis_log_lastupdate_value}
+  output[[toupper('discounts')]][['value']][[toupper('ssis_log_lastupdate')]]
+```
+    
+### Pattern 
+  
+```{r discounts_ssis_log_lastupdate_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('ssis_log_lastupdate')]]
+```
+  
+### Word
+  
+```{r discounts_ssis_log_lastupdate_word}
+  output[[toupper('discounts')]][['word']][[toupper('ssis_log_lastupdate')]]
+```
+
+# discounts_ssislogid {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssislogid
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_ssislogid_value}
+  output[[toupper('discounts')]][['value']][[toupper('ssislogid')]]
+```
+    
+### Pattern 
+  
+```{r discounts_ssislogid_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('ssislogid')]]
+```
+  
+### Word
+  
+```{r discounts_ssislogid_word}
+  output[[toupper('discounts')]][['word']][[toupper('ssislogid')]]
+```
+
+# discounts_store_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### store_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_store_id_value}
+  output[[toupper('discounts')]][['value']][[toupper('store_id')]]
+```
+    
+### Pattern 
+  
+```{r discounts_store_id_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('store_id')]]
+```
+  
+### Word
+  
+```{r discounts_store_id_word}
+  output[[toupper('discounts')]][['word']][[toupper('store_id')]]
+```
+
+# discounts_ticket_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#discounts)  
+
+[Meta Data](#discounts_columns_description)
+
+[Basic Statistics](#discounts_basic_statistics)
+
+
+- [CURRENCY](#discounts_currency)
+- [DISCOUNT_ITEM_DESCRIPTION](#discounts_discount_item_description)
+- [DISCOUNT_ITEM_KEY](#discounts_discount_item_key)
+- [ISVALID](#discounts_isvalid)
+- [LINK_TO_TICKET_ID_LINE](#discounts_link_to_ticket_id_line)
+- [LINK_TO_TICKET_ID_LINE_SEQ](#discounts_link_to_ticket_id_line_seq)
+- [SALESORG](#discounts_salesorg)
+- [SSISLOGID](#discounts_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#discounts_ssis_log_lastupdate)
+- [STORE_ID](#discounts_store_id)
+- [TICKET_ID](#discounts_ticket_id)
+- [DISCOUNT_ITEM_EX_VAT](#discounts_discount_item_ex_vat)
+- [DISCOUNT_ITEM_INC_VAT](#discounts_discount_item_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ticket_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r discounts_ticket_id_value}
+  output[[toupper('discounts')]][['value']][[toupper('ticket_id')]]
+```
+    
+### Pattern 
+  
+```{r discounts_ticket_id_pattern}
+  output[[toupper('discounts')]][['pattern']][[toupper('ticket_id')]]
+```
+  
+### Word
+  
+```{r discounts_ticket_id_word}
+  output[[toupper('discounts')]][['word']][[toupper('ticket_id')]]
+```
+
+# sell_in_currency {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### currency
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_currency_value}
+  output[[toupper('sell_in')]][['value']][[toupper('currency')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_currency_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('currency')]]
+```
+  
+### Word
+  
+```{r sell_in_currency_word}
+  output[[toupper('sell_in')]][['word']][[toupper('currency')]]
+```
+
+# sell_in_date {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### date
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_date_value}
+  output[[toupper('sell_in')]][['value']][[toupper('date')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_date_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('date')]]
+```
+  
+### Word
+  
+```{r sell_in_date_word}
+  output[[toupper('sell_in')]][['word']][[toupper('date')]]
+```
+
+# sell_in_global_article_number {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### global_article_number
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_global_article_number_value}
+  output[[toupper('sell_in')]][['value']][[toupper('global_article_number')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_global_article_number_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('global_article_number')]]
+```
+  
+### Word
+  
+```{r sell_in_global_article_number_word}
+  output[[toupper('sell_in')]][['word']][[toupper('global_article_number')]]
+```
+
+# sell_in_isvalid {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### isvalid
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_isvalid_value}
+  output[[toupper('sell_in')]][['value']][[toupper('isvalid')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_isvalid_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('isvalid')]]
+```
+  
+### Word
+  
+```{r sell_in_isvalid_word}
+  output[[toupper('sell_in')]][['word']][[toupper('isvalid')]]
+```
+
+# sell_in_local_article_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### local_article_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_local_article_id_value}
+  output[[toupper('sell_in')]][['value']][[toupper('local_article_id')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_local_article_id_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('local_article_id')]]
+```
+  
+### Word
+  
+```{r sell_in_local_article_id_word}
+  output[[toupper('sell_in')]][['word']][[toupper('local_article_id')]]
+```
+
+# sell_in_net_purchase_value {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### net_purchase_value
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# sell_in_opco {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### opco
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_opco_value}
+  output[[toupper('sell_in')]][['value']][[toupper('opco')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_opco_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('opco')]]
+```
+  
+### Word
+  
+```{r sell_in_opco_word}
+  output[[toupper('sell_in')]][['word']][[toupper('opco')]]
+```
+
+# sell_in_quantity {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### quantity
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# sell_in_return_indicator {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### return_indicator
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# sell_in_salesorg {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### salesorg
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_salesorg_value}
+  output[[toupper('sell_in')]][['value']][[toupper('salesorg')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_salesorg_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('salesorg')]]
+```
+  
+### Word
+  
+```{r sell_in_salesorg_word}
+  output[[toupper('sell_in')]][['word']][[toupper('salesorg')]]
+```
+
+# sell_in_ssis_log_lastupdate {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssis_log_lastupdate
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_ssis_log_lastupdate_value}
+  output[[toupper('sell_in')]][['value']][[toupper('ssis_log_lastupdate')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_ssis_log_lastupdate_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('ssis_log_lastupdate')]]
+```
+  
+### Word
+  
+```{r sell_in_ssis_log_lastupdate_word}
+  output[[toupper('sell_in')]][['word']][[toupper('ssis_log_lastupdate')]]
+```
+
+# sell_in_ssislogid {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssislogid
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_ssislogid_value}
+  output[[toupper('sell_in')]][['value']][[toupper('ssislogid')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_ssislogid_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('ssislogid')]]
+```
+  
+### Word
+  
+```{r sell_in_ssislogid_word}
+  output[[toupper('sell_in')]][['word']][[toupper('ssislogid')]]
+```
+
+# sell_in_store_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### store_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_store_id_value}
+  output[[toupper('sell_in')]][['value']][[toupper('store_id')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_store_id_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('store_id')]]
+```
+  
+### Word
+  
+```{r sell_in_store_id_word}
+  output[[toupper('sell_in')]][['word']][[toupper('store_id')]]
+```
+
+# sell_in_time {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### time
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_time_value}
+  output[[toupper('sell_in')]][['value']][[toupper('time')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_time_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('time')]]
+```
+  
+### Word
+  
+```{r sell_in_time_word}
+  output[[toupper('sell_in')]][['word']][[toupper('time')]]
+```
+
+# sell_in_warehouse_site {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_in)  
+
+[Meta Data](#sell_in_columns_description)
+
+[Basic Statistics](#sell_in_basic_statistics)
+
+
+- [CURRENCY](#sell_in_currency)
+- [DATE](#sell_in_date)
+- [GLOBAL_ARTICLE_NUMBER](#sell_in_global_article_number)
+- [ISVALID](#sell_in_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_in_local_article_id)
+- [OPCO](#sell_in_opco)
+- [SALESORG](#sell_in_salesorg)
+- [SSISLOGID](#sell_in_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_in_ssis_log_lastupdate)
+- [STORE_ID](#sell_in_store_id)
+- [TIME](#sell_in_time)
+- [WAREHOUSE_SITE](#sell_in_warehouse_site)
+- [QUANTITY](#sell_in_quantity)
+<<<<<<< HEAD
+=======
+- [RETURN_INDICATOR](#sell_in_return_indicator)
+- [SSISLOGID](#sell_in_ssislogid)
+- [TIME](#sell_in_time)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [NET_PURCHASE_VALUE](#sell_in_net_purchase_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### warehouse_site
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_in_warehouse_site_value}
+  output[[toupper('sell_in')]][['value']][[toupper('warehouse_site')]]
+```
+    
+### Pattern 
+  
+```{r sell_in_warehouse_site_pattern}
+  output[[toupper('sell_in')]][['pattern']][[toupper('warehouse_site')]]
+```
+  
+### Word
+  
+```{r sell_in_warehouse_site_word}
+  output[[toupper('sell_in')]][['word']][[toupper('warehouse_site')]]
+```
+
+# sell_out_cancellation_indicator {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### cancellation_indicator
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# sell_out_cogs {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### cogs
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# sell_out_consumer_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### consumer_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_consumer_id_value}
+  output[[toupper('sell_out')]][['value']][[toupper('consumer_id')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_consumer_id_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('consumer_id')]]
+```
+  
+### Word
+  
+```{r sell_out_consumer_id_word}
+  output[[toupper('sell_out')]][['word']][[toupper('consumer_id')]]
+```
+
+# sell_out_currency {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### currency
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_currency_value}
+  output[[toupper('sell_out')]][['value']][[toupper('currency')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_currency_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('currency')]]
+```
+  
+### Word
+  
+```{r sell_out_currency_word}
+  output[[toupper('sell_out')]][['word']][[toupper('currency')]]
+```
+
+# sell_out_date_delivered {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### date_delivered
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_date_delivered_value}
+  output[[toupper('sell_out')]][['value']][[toupper('date_delivered')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_date_delivered_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('date_delivered')]]
+```
+  
+### Word
+  
+```{r sell_out_date_delivered_word}
+  output[[toupper('sell_out')]][['word']][[toupper('date_delivered')]]
+```
+
+# sell_out_date {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### date
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_date_value}
+  output[[toupper('sell_out')]][['value']][[toupper('date')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_date_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('date')]]
+```
+  
+### Word
+  
+```{r sell_out_date_word}
+  output[[toupper('sell_out')]][['word']][[toupper('date')]]
+```
+
+# sell_out_global_article_number {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### global_article_number
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_global_article_number_value}
+  output[[toupper('sell_out')]][['value']][[toupper('global_article_number')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_global_article_number_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('global_article_number')]]
+```
+  
+### Word
+  
+```{r sell_out_global_article_number_word}
+  output[[toupper('sell_out')]][['word']][[toupper('global_article_number')]]
+```
+
+# sell_out_gross_value_sales_ex_vat {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### gross_value_sales_ex_vat
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# sell_out_gross_value_sales_inc_vat {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### gross_value_sales_inc_vat
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# sell_out_isvalid {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### isvalid
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_isvalid_value}
+  output[[toupper('sell_out')]][['value']][[toupper('isvalid')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_isvalid_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('isvalid')]]
+```
+  
+### Word
+  
+```{r sell_out_isvalid_word}
+  output[[toupper('sell_out')]][['word']][[toupper('isvalid')]]
+```
+
+# sell_out_local_article_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### local_article_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_local_article_id_value}
+  output[[toupper('sell_out')]][['value']][[toupper('local_article_id')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_local_article_id_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('local_article_id')]]
+```
+  
+### Word
+  
+```{r sell_out_local_article_id_word}
+  output[[toupper('sell_out')]][['word']][[toupper('local_article_id')]]
+```
+
+# sell_out_quantity {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### quantity
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# sell_out_return_indicator {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### return_indicator
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# sell_out_salesorg {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### salesorg
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_salesorg_value}
+  output[[toupper('sell_out')]][['value']][[toupper('salesorg')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_salesorg_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('salesorg')]]
+```
+  
+### Word
+  
+```{r sell_out_salesorg_word}
+  output[[toupper('sell_out')]][['word']][[toupper('salesorg')]]
+```
+
+# sell_out_ssis_log_lastupdate {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssis_log_lastupdate
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_ssis_log_lastupdate_value}
+  output[[toupper('sell_out')]][['value']][[toupper('ssis_log_lastupdate')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_ssis_log_lastupdate_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('ssis_log_lastupdate')]]
+```
+  
+### Word
+  
+```{r sell_out_ssis_log_lastupdate_word}
+  output[[toupper('sell_out')]][['word']][[toupper('ssis_log_lastupdate')]]
+```
+
+# sell_out_ssislogid {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssislogid
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_ssislogid_value}
+  output[[toupper('sell_out')]][['value']][[toupper('ssislogid')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_ssislogid_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('ssislogid')]]
+```
+  
+### Word
+  
+```{r sell_out_ssislogid_word}
+  output[[toupper('sell_out')]][['word']][[toupper('ssislogid')]]
+```
+
+# sell_out_store_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### store_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_store_id_value}
+  output[[toupper('sell_out')]][['value']][[toupper('store_id')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_store_id_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('store_id')]]
+```
+  
+### Word
+  
+```{r sell_out_store_id_word}
+  output[[toupper('sell_out')]][['word']][[toupper('store_id')]]
+```
+
+# sell_out_ticket_id_line {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ticket_id_line
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_ticket_id_line_value}
+  output[[toupper('sell_out')]][['value']][[toupper('ticket_id_line')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_ticket_id_line_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('ticket_id_line')]]
+```
+  
+### Word
+  
+```{r sell_out_ticket_id_line_word}
+  output[[toupper('sell_out')]][['word']][[toupper('ticket_id_line')]]
+```
+
+# sell_out_ticket_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ticket_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_ticket_id_value}
+  output[[toupper('sell_out')]][['value']][[toupper('ticket_id')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_ticket_id_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('ticket_id')]]
+```
+  
+### Word
+  
+```{r sell_out_ticket_id_word}
+  output[[toupper('sell_out')]][['word']][[toupper('ticket_id')]]
+```
+
+# sell_out_time {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#sell_out)  
+
+[Meta Data](#sell_out_columns_description)
+
+[Basic Statistics](#sell_out_basic_statistics)
+
+
+<<<<<<< HEAD
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+=======
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [CURRENCY](#sell_out_currency)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [GLOBAL_ARTICLE_NUMBER](#sell_out_global_article_number)
+- [ISVALID](#sell_out_isvalid)
+- [LOCAL_ARTICLE_ID](#sell_out_local_article_id)
+- [SALESORG](#sell_out_salesorg)
+- [SSISLOGID](#sell_out_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#sell_out_ssis_log_lastupdate)
+- [STORE_ID](#sell_out_store_id)
+- [TICKET_ID](#sell_out_ticket_id)
+- [TICKET_ID_LINE](#sell_out_ticket_id_line)
+- [TIME](#sell_out_time)
+<<<<<<< HEAD
+- [QUANTITY](#sell_out_quantity)
+=======
+- [CANCELLATION_INDICATOR](#sell_out_cancellation_indicator)
+- [CONSUMER_ID](#sell_out_consumer_id)
+- [DATE](#sell_out_date)
+- [DATE_DELIVERED](#sell_out_date_delivered)
+- [ISVALID](#sell_out_isvalid)
+- [QUANTITY](#sell_out_quantity)
+- [RETURN_INDICATOR](#sell_out_return_indicator)
+- [SSISLOGID](#sell_out_ssislogid)
+>>>>>>> 13b56439ffaaea014c6891c97e012f380c83d9fa
+- [COGS](#sell_out_cogs)
+- [GROSS_VALUE_SALES_EX_VAT](#sell_out_gross_value_sales_ex_vat)
+- [GROSS_VALUE_SALES_INC_VAT](#sell_out_gross_value_sales_inc_vat)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### time
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r sell_out_time_value}
+  output[[toupper('sell_out')]][['value']][[toupper('time')]]
+```
+    
+### Pattern 
+  
+```{r sell_out_time_pattern}
+  output[[toupper('sell_out')]][['pattern']][[toupper('time')]]
+```
+  
+### Word
+  
+```{r sell_out_time_word}
+  output[[toupper('sell_out')]][['word']][[toupper('time')]]
+```
+
+# stock_currency {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### currency
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_currency_value}
+  output[[toupper('stock')]][['value']][[toupper('currency')]]
+```
+    
+### Pattern 
+  
+```{r stock_currency_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('currency')]]
+```
+  
+### Word
+  
+```{r stock_currency_word}
+  output[[toupper('stock')]][['word']][[toupper('currency')]]
+```
+
+# stock_date {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### date
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_date_value}
+  output[[toupper('stock')]][['value']][[toupper('date')]]
+```
+    
+### Pattern 
+  
+```{r stock_date_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('date')]]
+```
+  
+### Word
+  
+```{r stock_date_word}
+  output[[toupper('stock')]][['word']][[toupper('date')]]
+```
+
+# stock_global_article_number {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### global_article_number
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_global_article_number_value}
+  output[[toupper('stock')]][['value']][[toupper('global_article_number')]]
+```
+    
+### Pattern 
+  
+```{r stock_global_article_number_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('global_article_number')]]
+```
+  
+### Word
+  
+```{r stock_global_article_number_word}
+  output[[toupper('stock')]][['word']][[toupper('global_article_number')]]
+```
+
+# stock_local_article_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### local_article_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_local_article_id_value}
+  output[[toupper('stock')]][['value']][[toupper('local_article_id')]]
+```
+    
+### Pattern 
+  
+```{r stock_local_article_id_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('local_article_id')]]
+```
+  
+### Word
+  
+```{r stock_local_article_id_word}
+  output[[toupper('stock')]][['word']][[toupper('local_article_id')]]
+```
+
+# stock_opco {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### opco
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_opco_value}
+  output[[toupper('stock')]][['value']][[toupper('opco')]]
+```
+    
+### Pattern 
+  
+```{r stock_opco_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('opco')]]
+```
+  
+### Word
+  
+```{r stock_opco_word}
+  output[[toupper('stock')]][['word']][[toupper('opco')]]
+```
+
+# stock_quantity {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### quantity
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# stock_site {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### site
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_site_value}
+  output[[toupper('stock')]][['value']][[toupper('site')]]
+```
+    
+### Pattern 
+  
+```{r stock_site_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('site')]]
+```
+  
+### Word
+  
+```{r stock_site_word}
+  output[[toupper('stock')]][['word']][[toupper('site')]]
+```
+
+# stock_ssis_log_lastupdate {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssis_log_lastupdate
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_ssis_log_lastupdate_value}
+  output[[toupper('stock')]][['value']][[toupper('ssis_log_lastupdate')]]
+```
+    
+### Pattern 
+  
+```{r stock_ssis_log_lastupdate_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('ssis_log_lastupdate')]]
+```
+  
+### Word
+  
+```{r stock_ssis_log_lastupdate_word}
+  output[[toupper('stock')]][['word']][[toupper('ssis_log_lastupdate')]]
+```
+
+# stock_ssislogid {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssislogid
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_ssislogid_value}
+  output[[toupper('stock')]][['value']][[toupper('ssislogid')]]
+```
+    
+### Pattern 
+  
+```{r stock_ssislogid_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('ssislogid')]]
+```
+  
+### Word
+  
+```{r stock_ssislogid_word}
+  output[[toupper('stock')]][['word']][[toupper('ssislogid')]]
+```
+
+# stock_stock_status {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### stock_status
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_stock_status_value}
+  output[[toupper('stock')]][['value']][[toupper('stock_status')]]
+```
+    
+### Pattern 
+  
+```{r stock_stock_status_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('stock_status')]]
+```
+  
+### Word
+  
+```{r stock_stock_status_word}
+  output[[toupper('stock')]][['word']][[toupper('stock_status')]]
+```
+
+# stock_stock_value {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### stock_value
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# stock_time {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#stock)  
+
+[Meta Data](#stock_columns_description)
+
+[Basic Statistics](#stock_basic_statistics)
+
+
+- [CURRENCY](#stock_currency)
+- [DATE](#stock_date)
+- [GLOBAL_ARTICLE_NUMBER](#stock_global_article_number)
+- [LOCAL_ARTICLE_ID](#stock_local_article_id)
+- [OPCO](#stock_opco)
+- [SITE](#stock_site)
+- [SSISLOGID](#stock_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#stock_ssis_log_lastupdate)
+- [STOCK_STATUS](#stock_stock_status)
+- [TIME](#stock_time)
+- [QUANTITY](#stock_quantity)
+- [STOCK_VALUE](#stock_stock_value)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### time
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r stock_time_value}
+  output[[toupper('stock')]][['value']][[toupper('time')]]
+```
+    
+### Pattern 
+  
+```{r stock_time_pattern}
+  output[[toupper('stock')]][['pattern']][[toupper('time')]]
+```
+  
+### Word
+  
+```{r stock_time_word}
+  output[[toupper('stock')]][['word']][[toupper('time')]]
+```
+
+# store_address_line_1 {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### address_line_1
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_address_line_1_value}
+  output[[toupper('store')]][['value']][[toupper('address_line_1')]]
+```
+    
+### Pattern 
+  
+```{r store_address_line_1_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('address_line_1')]]
+```
+  
+### Word
+  
+```{r store_address_line_1_word}
+  output[[toupper('store')]][['word']][[toupper('address_line_1')]]
+```
+
+# store_address_line_2 {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### address_line_2
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_address_line_2_value}
+  output[[toupper('store')]][['value']][[toupper('address_line_2')]]
+```
+    
+### Pattern 
+  
+```{r store_address_line_2_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('address_line_2')]]
+```
+  
+### Word
+  
+```{r store_address_line_2_word}
+  output[[toupper('store')]][['word']][[toupper('address_line_2')]]
+```
+
+# store_city {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### city
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_city_value}
+  output[[toupper('store')]][['value']][[toupper('city')]]
+```
+    
+### Pattern 
+  
+```{r store_city_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('city')]]
+```
+  
+### Word
+  
+```{r store_city_word}
+  output[[toupper('store')]][['word']][[toupper('city')]]
+```
+
+# store_date_closed {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### date_closed
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_date_closed_value}
+  output[[toupper('store')]][['value']][[toupper('date_closed')]]
+```
+    
+### Pattern 
+  
+```{r store_date_closed_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('date_closed')]]
+```
+  
+### Word
+  
+```{r store_date_closed_word}
+  output[[toupper('store')]][['word']][[toupper('date_closed')]]
+```
+
+# store_date_opened {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### date_opened
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_date_opened_value}
+  output[[toupper('store')]][['value']][[toupper('date_opened')]]
+```
+    
+### Pattern 
+  
+```{r store_date_opened_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('date_opened')]]
+```
+  
+### Word
+  
+```{r store_date_opened_word}
+  output[[toupper('store')]][['word']][[toupper('date_opened')]]
+```
+
+# store_emerald_store_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### emerald_store_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_emerald_store_id_value}
+  output[[toupper('store')]][['value']][[toupper('emerald_store_id')]]
+```
+    
+### Pattern 
+  
+```{r store_emerald_store_id_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('emerald_store_id')]]
+```
+  
+### Word
+  
+```{r store_emerald_store_id_word}
+  output[[toupper('store')]][['word']][[toupper('emerald_store_id')]]
+```
+
+# store_predecessor_emerald_store_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### predecessor_emerald_store_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_predecessor_emerald_store_id_value}
+  output[[toupper('store')]][['value']][[toupper('predecessor_emerald_store_id')]]
+```
+    
+### Pattern 
+  
+```{r store_predecessor_emerald_store_id_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('predecessor_emerald_store_id')]]
+```
+  
+### Word
+  
+```{r store_predecessor_emerald_store_id_word}
+  output[[toupper('store')]][['word']][[toupper('predecessor_emerald_store_id')]]
+```
+
+# store_predecessor_store_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### predecessor_store_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_predecessor_store_id_value}
+  output[[toupper('store')]][['value']][[toupper('predecessor_store_id')]]
+```
+    
+### Pattern 
+  
+```{r store_predecessor_store_id_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('predecessor_store_id')]]
+```
+  
+### Word
+  
+```{r store_predecessor_store_id_word}
+  output[[toupper('store')]][['word']][[toupper('predecessor_store_id')]]
+```
+
+# store_region {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### region
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_region_value}
+  output[[toupper('store')]][['value']][[toupper('region')]]
+```
+    
+### Pattern 
+  
+```{r store_region_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('region')]]
+```
+  
+### Word
+  
+```{r store_region_word}
+  output[[toupper('store')]][['word']][[toupper('region')]]
+```
+
+# store_retail_surface_area {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### retail_surface_area
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# store_salesorg {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### salesorg
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_salesorg_value}
+  output[[toupper('store')]][['value']][[toupper('salesorg')]]
+```
+    
+### Pattern 
+  
+```{r store_salesorg_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('salesorg')]]
+```
+  
+### Word
+  
+```{r store_salesorg_word}
+  output[[toupper('store')]][['word']][[toupper('salesorg')]]
+```
+
+# store_ssis_log_lastupdate {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssis_log_lastupdate
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_ssis_log_lastupdate_value}
+  output[[toupper('store')]][['value']][[toupper('ssis_log_lastupdate')]]
+```
+    
+### Pattern 
+  
+```{r store_ssis_log_lastupdate_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('ssis_log_lastupdate')]]
+```
+  
+### Word
+  
+```{r store_ssis_log_lastupdate_word}
+  output[[toupper('store')]][['word']][[toupper('ssis_log_lastupdate')]]
+```
+
+# store_ssislogid {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### ssislogid
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_ssislogid_value}
+  output[[toupper('store')]][['value']][[toupper('ssislogid')]]
+```
+    
+### Pattern 
+  
+```{r store_ssislogid_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('ssislogid')]]
+```
+  
+### Word
+  
+```{r store_ssislogid_word}
+  output[[toupper('store')]][['word']][[toupper('ssislogid')]]
+```
+
+# store_store_cluster {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### store_cluster
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_store_cluster_value}
+  output[[toupper('store')]][['value']][[toupper('store_cluster')]]
+```
+    
+### Pattern 
+  
+```{r store_store_cluster_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('store_cluster')]]
+```
+  
+### Word
+  
+```{r store_store_cluster_word}
+  output[[toupper('store')]][['word']][[toupper('store_cluster')]]
+```
+
+# store_store_id {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### store_id
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_store_id_value}
+  output[[toupper('store')]][['value']][[toupper('store_id')]]
+```
+    
+### Pattern 
+  
+```{r store_store_id_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('store_id')]]
+```
+  
+### Word
+  
+```{r store_store_id_word}
+  output[[toupper('store')]][['word']][[toupper('store_id')]]
+```
+
+# store_store_lat {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### store_lat
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# store_store_long {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### store_long
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+# store_store_type_subcat {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### store_type_subcat
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_store_type_subcat_value}
+  output[[toupper('store')]][['value']][[toupper('store_type_subcat')]]
+```
+    
+### Pattern 
+  
+```{r store_store_type_subcat_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('store_type_subcat')]]
+```
+  
+### Word
+  
+```{r store_store_type_subcat_word}
+  output[[toupper('store')]][['word']][[toupper('store_type_subcat')]]
+```
+
+# store_store_type {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### store_type
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_store_type_value}
+  output[[toupper('store')]][['value']][[toupper('store_type')]]
+```
+    
+### Pattern 
+  
+```{r store_store_type_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('store_type')]]
+```
+  
+### Word
+  
+```{r store_store_type_word}
+  output[[toupper('store')]][['word']][[toupper('store_type')]]
+```
+
+# store_zip_code {.hidden data-orientation=rows}
+
+## Navigation {.sidebar}
+
+[Key Data Domain](#store)  
+
+[Meta Data](#store_columns_description)
+
+[Basic Statistics](#store_basic_statistics)
+
+
+- [ADDRESS_LINE_1](#store_address_line_1)
+- [ADDRESS_LINE_2](#store_address_line_2)
+- [CITY](#store_city)
+- [DATE_CLOSED](#store_date_closed)
+- [DATE_OPENED](#store_date_opened)
+- [EMERALD_STORE_ID](#store_emerald_store_id)
+- [PREDECESSOR_EMERALD_STORE_ID](#store_predecessor_emerald_store_id)
+- [PREDECESSOR_STORE_ID](#store_predecessor_store_id)
+- [REGION](#store_region)
+- [SALESORG](#store_salesorg)
+- [SSISLOGID](#store_ssislogid)
+- [SSIS_LOG_LASTUPDATE](#store_ssis_log_lastupdate)
+- [STORE_CLUSTER](#store_store_cluster)
+- [STORE_ID](#store_store_id)
+- [STORE_TYPE](#store_store_type)
+- [STORE_TYPE_SUBCAT](#store_store_type_subcat)
+- [ZIP_CODE](#store_zip_code)
+- [RETAIL_SURFACE_AREA](#store_retail_surface_area)
+- [STORE_LAT](#store_store_lat)
+- [STORE_LONG](#store_store_long)
+    
+## Graphs {.tabset .tabset-fade}
+    
+### zip_code
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r store_zip_code_value}
+  output[[toupper('store')]][['value']][[toupper('zip_code')]]
+```
+    
+### Pattern 
+  
+```{r store_zip_code_pattern}
+  output[[toupper('store')]][['pattern']][[toupper('zip_code')]]
+```
+  
+### Word
+  
+```{r store_zip_code_word}
+  output[[toupper('store')]][['word']][[toupper('zip_code')]]
+```
+
+# Files {data-orientation=rows}
+
+## {data-height=150}
+
+### Data Profiling Dashboard 
+
+**Generated on:** `r format(with_tz(Sys.time(), tzone = "Europe/Amsterdam" ), 
+'%A, %B %d, %Y %X')`
+
+## {data-height=900}
+
+### Data Files
+
+Information on data extracts
+
+```{r display_file_info, eval=TRUE, echo=FALSE, results='asis'}
+
+opco_path <- 
+  file.path(p_raw, params$denv, f_get_opco_folder(params$opco))
+
+dtFileInfo <- 
+  f_get_file_info(opco_path, list.files(opco_path))                      %T>%
+   # .[, age:= {interval(Sys.time(), mtime) %>% as.period() }]        %>%
+  setorder(-mtime)  
+
+knitr::kable(
+  dtFileInfo[, .(Name = filename, Date = mtime, Size = size_unit)]
+)
+```
+
+### Meta data
+
+Information refresh of metadata
+
+```{r get_meta_data_file_Info, eval=TRUE, echo=FALSE, results='asis'}
+
+dt_meta_data_file_info <- 
+  f_get_file_info(p_src, list.files(p_src))                              %T>%
+  setorder(-mtime)  
+
+ knitr::kable(
+   dt_meta_data_file_info[, .(Name = filename, 
+                              Date = mtime, Size = size_unit)])
+
+```
+

@@ -1,0 +1,107 @@
+---
+title: "PVC-BI"
+output: 
+  flexdashboard::flex_dashboard:
+  # theme: journal
+  theme: cosmo
+navbar:
+  - { title: "About", href: "https://www.grandvision.com", align: right }    
+orientation: rows
+# orientation: columns
+logo: flex_gv.png
+favicon: favicon.ico    
+params:
+  denv  : "prd"             # environment acc | prd
+  opco  :                   # 2 character opco
+  nrws  : "Inf"             # c(-1,0,1,n)
+#    css: test.css    
+---
+  
+```{r setup, include=FALSE}
+library(flexdashboard)
+source(file.path("~", "isdb", "00-scripts", "00_setup.R"))
+
+```
+
+```{r create_graphs, eval=TRUE, include=FALSE}
+opcos <- c("pe")
+
+DT <- 
+  f_get_opcos_sell_out_pmdm_mapping(opcos = opcos)
+
+lst <- f_create_igraph_gan_mapping(DT[OPCO == "pe"])
+
+```
+
+# OPCO {data-icon="far fa-building" .storyboard}
+
+### **Sell-out Volume per month**. 
+Blue is volume which can be related to PMDM, Orange can't as no valid GAN/EAN was provided {data-commentary-width=300} 
+  
+```{r}
+# add interactive bar -------
+
+(lst[["pQI"]])
+```
+  
+*** 
+**Sell-out Value per month**
+
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+  
+### **Sell-out Volume % per month**. 
+Blue is volume which can be related to PMDM, Orange can't as no valid GAN/EAN was provided {data-commentary-width=300} 
+  
+```{r}
+# add interactive bar -------
+
+(lst[["pQP"]])
+```
+  
+*** 
+**Sell-out Volume % per month**
+
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+
+### **Sell-out Value per month**. 
+Blue is volume which can be related to PMDM, Orange can't as no valid GAN/EAN was provided {data-commentary-width=300} 
+  
+```{r}
+# add interactive bar -------
+
+(lst[["pVI"]])
+```
+  
+*** 
+**Sell-out Value per month**
+
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN  
+
+### **Sell-out Value % per month**. 
+Blue is volume which can be related to PMDM, Orange can't as no valid GAN/EAN was provided {data-commentary-width=300} 
+  
+```{r}
+# add interactive bar -------
+
+(lst[["pVP2"]])
+```
+  
+*** 
+**Sell-out Value % per month**
+
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN
+- 15% on average can be related to PMDM using GAN  
+
+
+    

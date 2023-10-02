@@ -1,0 +1,246 @@
+---
+title: "PVC-BI"
+output: 
+  flexdashboard::flex_dashboard:
+  # theme: journal
+  theme: cosmo
+navbar:
+  - { title: "About", href: "https://www.grandvision.com", align: right }    
+orientation: rows
+# orientation: columns
+logo: flex_gv.png
+favicon: favicon.ico    
+params:
+  denv : "prd"    # environment acc | prd
+  opco : "ch"     # 2 character opco
+  nrws : "Inf"    # c(-1,0,1,n)
+#    css: test.css    
+---
+  
+```{r setup, include=FALSE}
+library(flexdashboard)
+source(file.path("~", "isdb", "00-scripts", "00_setup.R"))
+opco_labels <- f_read_opco_labels()
+```
+
+# Menu {.sidebar}
+
+- [icon](#icon)
+- [Profiling](http://www.kpn.com)
+  
+# icon {data-icon="far fa-building" .storyboard}
+  
+### Frame 0
+  
+[CSS](C:\Users\Floris\Documents\R\win-library\3.6\flexdashboard\rmarkdown\templates\flex_dashboard\resources)
+  
+"default", "cerulean", "journal", "flatly", "darkly", "readable", "spacelab", "united", "cosmo", "lumen", "paper", "sandstone", "simplex", "yeti"
+  
+  default
+  X cosmo     hard blauw
+  bootstrap   wit
+  X cerulean  donker blauw  gauges te licht
+  X journal   rood/oranje
+  X flatly    groen
+  X readable  wit
+  X spacelab  blauw
+  X united    donker rood/paars
+  X lumen     wit
+  X paper     licht blauw
+  X sandstone bladgroen
+  X simplex   bloedrood
+  X yeti      blauwgroen
+  darkly      pearle groen
+  
+### Frame X
+  
+  x
+  
+### Frame 1
+  
+```{r}
+# add interactive bar -------
+library(ggplot2)
+library(ggiraph)
+
+load(file="/home/fpadt/isdb/20-flexdashboards/x.Rdata")
+
+# map the GV-colors 
+#                    "-"      , MARA_EAN , PMDM_EAN , PMDM_GAN
+gvColors        <- c(GV_ORNG_0, GV_GREY_1, GV_BLUE_2, GV_BLUE_0)
+names(gvColors) <- levels(x$MAP)
+colScale        <- scale_fill_manual(name = "pmdm", values = gvColors)
+colScale_col    <- scale_color_manual(name = "pmdm", values = gvColors)
+
+# Determine the breaks
+db <- paste(ceiling(length(unique(x$Month))/9), "month")
+br <- (1:10)/10
+et <- element_text(
+      family = "DejaVu Sans", face = "plain", colour = GV_GREY_1, size = 15)
+at <- element_text(
+      family = "DejaVu Sans", face = "plain", colour = GV_GREY_1, size = 12)
+
+
+pQ <- 
+  ggplot(data = x, mapping = aes(x = Month, y = Q, fill = MAP,
+                                 tooltip = Q)) +
+  colScale + 
+  scale_x_date(date_breaks = eval(db), date_labels = "%Y.%m") +
+  scale_y_continuous(sec.axis = sec_axis(~ . )) +
+  # labs(title = paste0(params$opco ), x = "Date") +
+  labs(
+    title = opco_labels[OPCO == params$opco, LABEL], 
+    subtitle = format(today(), "%A, %d %B, %Y "),
+    x = "Date") +  
+  facet_wrap(facets = "Category", nrow = 2) +
+  theme(text = at, title = et, legend.position = "bottom")
+
+pQI <- 
+    pQ + 
+    geom_col_interactive() +
+    # geom_hline(
+    #   data = x[, .(yintercept = mean(Q)), by = .(Category, MAP)], 
+    #   mapping= aes(yintercept = yintercept, color = MAP)) +
+    # colScale_col +
+    labs(y = "Sell-Out Vol. ")
+   
+
+ggiraph(code = print(pQI))
+
+
+```
+  
+*** 
+    
+Some commentary about Frame 1.
+  
+### Frame 2 {data-commentary-width=400}
+  
+```{r}
+```
+  
+*** 
+    
+Some commentary about Frame 2.
+  
+# HQ {data-navmenu="Opco" data-icon="fa-pencil" data-orientation=rows}
+
+# Swiss {data-navmenu="Opco" data-orientation=rows}
+
+## ff
+
+### Test2
+This is not good
+  
+### Contact Rate
+
+```{r}
+rate <- 90
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+    success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+    href = "#Details"
+)
+```
+  
+### Average Rating 
+  
+```{r}
+rating <- 30
+gauge(rating, min = 0, max = 50, gaugeSectors(
+  success = c(41, 50), warning = c(21, 40), danger = c(0, 20)
+))
+```
+  
+### Cancellations
+  
+```{r}
+cancellations <- 8
+gauge(cancellations, min = 0, max = 10, gaugeSectors(
+  success = c(0, 2), warning = c(3, 6), danger = c(7, 10)
+))
+```
+  
+# Profiling {data-navmenu="Data"}
+  
+## col {data-height=400}
+  
+### Chart A
+  
+```{r fig.width=10, fig.height=7}
+  hist(rnorm(n = 100, mean = 50, sd = 20))
+```
+  
+### Value
+```{r}
+valueBox(1200, icon = "fa-pencil", href="http://www.grandvision.com")
+```
+  
+### Spam
+```{r}
+spam <- 12
+valueBox(spam, 
+         icon = "fa-trash",
+         color = ifelse(spam > 10, "warning", "primary"))
+```
+  
+  
+## col {.tabset .tabset-fade data-height=600}
+  
+### Chart B
+  
+```{r}
+valueBox(1200, icon = "fa-pencil")
+```
+  
+*** 
+    
+  Some commentary about Frame B on profiling.
+  
+### Chart C
+  
+```{r}
+hist(rnorm(n = 100, mean = 50, sd = 20))
+```
+  
+  > chart C
+  
+  
+  
+# Other {data-navmenu="Data" data-icon="fas fa-store" }
+  
+## col
+  
+### Chart A
+  
+```{r}
+hist(rnorm(n = 100, mean = 50, sd = 20))
+```
+  
+> chart A
+  
+## col {.tabset .tabset-fade}
+  
+### Chart B
+  
+```{r}
+  hist(rnorm(n = 100, mean = 50, sd = 20))
+```
+  
+> chart B
+  
+### Chart C
+  
+```{r}
+  hist(rnorm(n = 100, mean = 50, sd = 20))
+```
+  
+*** 
+    
+  Some commentary about Frame C on other.
+  
+# Details {.hidden}
+  
+  Hidden page for teh Gauge
+  
+  
+  

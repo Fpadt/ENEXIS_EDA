@@ -1,0 +1,20 @@
+# <table>_columns_description {.hidden data-orientation=rows}
+
+<sidebar>
+
+## 
+
+### Meta Data 
+Table: **`r toupper("<table>")`**
+
+```{r <table>_columns_description}
+# Show metadata of OPCO-table
+
+knitr::kable(
+  metadata_didp[
+    DS == toupper("<table>"), 
+    !c("ID", "IMPORT", "OPCO", "TABLE_NAME", "DS")])
+
+
+```
+

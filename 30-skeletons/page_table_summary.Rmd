@@ -1,0 +1,53 @@
+# <table> { data-orientation=rows }
+
+<sidebar>
+
+## Overview
+
+### PMDM
+
+> ToDo: link to PMDM ID
+
+```{r <table>_gauge_pmdm}
+rate <- 90
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Emerald
+
+> ToDo: link to Emerald Store ID
+
+```{r <table>_gauge_emerald}
+rate <- 50
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+### Vacant
+
+> ToDo: relevant key field to be linked
+
+```{r <table>_gauge_vacant}
+rate <- 20
+gauge(rate, min = 0, max = 100, symbol = '%', gaugeSectors(
+  success = c(80, 100), warning = c(40, 79), danger = c(0, 39)),
+  href = "#Details"
+)
+```
+
+## Comments
+
+### Action Points {data-width=1200}
+
+
+### Comments
+
+- bullet points or table 
+
+
+

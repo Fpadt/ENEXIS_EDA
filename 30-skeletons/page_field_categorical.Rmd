@@ -1,0 +1,41 @@
+# <table>_<field> {.hidden data-orientation=rows}
+
+<sidebar>
+    
+## Graphs {.tabset .tabset-fade}
+    
+### <field>
+Gauges
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
+### Values 
+    
+```{r <table>_<field>_value}
+  output[[toupper('<table>')]][['value']][[toupper('<field>')]]
+```
+    
+### Pattern 
+  
+```{r <table>_<field>_pattern}
+  output[[toupper('<table>')]][['pattern']][[toupper('<field>')]]
+```
+  
+### Word
+  
+```{r <table>_<field>_word}
+  output[[toupper('<table>')]][['word']][[toupper('<field>')]]
+```
+

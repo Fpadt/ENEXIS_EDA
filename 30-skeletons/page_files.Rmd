@@ -1,0 +1,46 @@
+# Files {data-orientation=rows}
+
+## {data-height=150}
+
+### Data Profiling Dashboard 
+
+**Generated on:** `r format(with_tz(Sys.time(), tzone = "Europe/Amsterdam" ), 
+'%A, %B %d, %Y %X')`
+
+## {data-height=900}
+
+### Data Files
+
+Information on data extracts
+
+```{r display_file_info, eval=TRUE, echo=FALSE, results='asis'}
+
+opco_path <- 
+  file.path(p_raw, params$denv, f_get_opco_folder(params$opco))
+
+dtFileInfo <- 
+  f_get_file_info(opco_path, list.files(opco_path))                      %T>%
+   # .[, age:= {interval(Sys.time(), mtime) %>% as.period() }]        %>%
+  setorder(-mtime)  
+
+knitr::kable(
+  dtFileInfo[, .(Name = filename, Date = mtime, Size = size_unit)]
+)
+```
+
+### Meta data
+
+Information refresh of metadata
+
+```{r get_meta_data_file_Info, eval=TRUE, echo=FALSE, results='asis'}
+
+dt_meta_data_file_info <- 
+  f_get_file_info(p_src, list.files(p_src))                              %T>%
+  setorder(-mtime)  
+
+ knitr::kable(
+   dt_meta_data_file_info[, .(Name = filename, 
+                              Date = mtime, Size = size_unit)])
+
+```
+

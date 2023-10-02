@@ -1,0 +1,199 @@
+---
+title: "PVC-BI"
+output: 
+  flexdashboard::flex_dashboard:
+  # theme: journal
+  theme: cosmo
+navbar:
+  - { title: "About", href: "https://www.grandvision.com", align: right }    
+orientation: columns
+vertical_layout: fill
+logo: flex_gv.png
+favicon: favicon.ico    
+params:
+  denv  : "prd"             # environment acc | prd
+  opco  :                   # 2 character opco
+  nrws  : "Inf"             # c(-1,0,1,n)
+#    css: test.css    
+---
+  
+```{r setup, include=FALSE}
+library(flexdashboard)
+source(file.path("~", "isdb", "00-scripts", "00_setup.R"))
+pWidth <- .5
+
+```
+
+```{r create_graphs, eval=TRUE, include=FALSE}
+opcos <- c("ch", "tr", "pe", "co", "it")
+
+DT <- 
+  f_get_opcos_sell_out_pmdm_mapping(
+    opcos = opcos,
+    pmdm_file_name = "20210118141218_PMDM_Full.csv")
+
+lst <- 
+  map(.x = opcos, f_create_igraph_gan_mapping, DT) %>%
+  set_names(opcos)
+
+```
+
+# Swiss {data-navmenu="Opco" data-orientation=rows}
+## {.tabset .tabset-fade}
+
+### Volume 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["ch"]][["pQI"]])
+
+```
+
+### Volume % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["ch"]][["pQP"]])
+```
+  
+### Value 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["ch"]][["pVI"]])
+```
+  
+### Value % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["ch"]][["pVP"]])
+```
+
+# Turkey {data-navmenu="Opco" data-orientation=rows}
+## {.tabset .tabset-fade}
+
+### Volume 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["tr"]][["pQI"]])
+
+```
+
+### Volume % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["tr"]][["pQP"]])
+```
+  
+### Value 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["tr"]][["pVI"]])
+```
+  
+### Value % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["tr"]][["pVP"]])
+```
+
+# Peru {data-navmenu="Opco" data-orientation=rows}
+## {.tabset .tabset-fade}
+
+### Volume 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["pe"]][["pQI"]])
+
+```
+
+### Volume % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["pe"]][["pQP"]])
+```
+  
+### Value 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["pe"]][["pVI"]])
+```
+  
+### Value % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["pe"]][["pVP"]])
+```
+
+# Columbia {data-navmenu="Opco" data-orientation=rows}
+## {.tabset .tabset-fade}
+
+### Volume 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["co"]][["pQI"]])
+
+```
+
+### Volume % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["co"]][["pQP"]])
+```
+  
+### Value 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["co"]][["pVI"]])
+```
+  
+### Value % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["co"]][["pVP"]])
+```
+
+# Italy {data-navmenu="Opco" data-orientation=rows}
+## {.tabset .tabset-fade}
+
+### Volume 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["it"]][["pQI"]])
+
+```
+
+### Volume % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["it"]][["pQP"]])
+```
+  
+### Value 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["it"]][["pVI"]])
+```
+  
+### Value % 
+
+```{r}
+# add interactive bar -------
+ggplotly(lst[["it"]][["pVP"]])
+```

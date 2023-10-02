@@ -1,0 +1,23 @@
+# <table>_<field> {.hidden data-orientation=rows}
+
+<sidebar>
+    
+## Graphs {.tabset .tabset-fade}
+    
+### <field>
+Gauges _key figures
+  
+### Comments
+
+**todo:  **
+
+- Text or table with findings
+- special characters found?
+- cardinality
+  
+### Histogram 
+  
+### BoxPlot
+  
+## Tables {.tabset .tabset-fade}
+  
